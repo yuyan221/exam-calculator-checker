@@ -1,0 +1,14 @@
+{
+  "name": "exam-calculator-checker",
+  "version": "1.0.0",
+  "description": "Exam calculator eligibility checker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.55.0",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1"
+  }
+}

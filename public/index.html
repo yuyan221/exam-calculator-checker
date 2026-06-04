@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exam Calculator Checker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 8px;
+    }
+
+    .header .subtitle {
+      font-size: 0.95rem;
+      color: #718096;
+    }
+
+    .rule-banner {
+      background: #fff3cd;
+      border: 1.5px solid #f6c90e;
+      border-radius: 10px;
+      padding: 14px 20px;
+      max-width: 680px;
+      width: 100%;
+      margin-bottom: 28px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .rule-banner .icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+
+    .rule-banner p {
+      font-size: 0.93rem;
+      color: #7d5a00;
+      line-height: 1.55;
+    }
+
+    .rule-banner strong { color: #5c3d00; }
+
+    .search-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 32px 36px;
+      max-width: 680px;
+      width: 100%;
+    }
+
+    .search-label {
+      font-size: 0.88rem;
+      color: #718096;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .search-row input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+      color: #1a202c;
+    }
+
+    .search-row input:focus { border-color: #4299e1; }
+
+    .search-row input::placeholder { color: #a0aec0; }
+
+    .search-row button {
+      padding: 12px 22px;
+      background: #2b6cb0;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.97rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .search-row button:hover { background: #2c5282; }
+    .search-row button:disabled { background: #90cdf4; cursor: not-allowed; }
+
+    .spinner {
+      display: none;
+      margin: 28px auto 0;
+      text-align: center;
+      color: #718096;
+      font-size: 0.93rem;
+    }
+
+    .spinner.active { display: block; }
+
+    .spinner::before {
+      content: '';
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #4299e1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result {
+      margin-top: 24px;
+      border-radius: 10px;
+      padding: 20px 22px;
+      display: none;
+    }
+
+    .result.show { display: block; }
+
+    .result.permitted {
+      background: #f0fff4;
+      border: 2px solid #68d391;
+    }
+
+    .result.not-permitted {
+      background: #fff5f5;
+      border: 2px solid #fc8181;
+    }
+
+    .result.unknown {
+      background: #fffaf0;
+      border: 2px solid #f6ad55;
+    }
+
+    .result-heading {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .result.permitted .result-heading { color: #276749; }
+    .result.not-permitted .result-heading { color: #9b2c2c; }
+    .result.unknown .result-heading { color: #7b4f12; }
+
+    .result-model {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 6px;
+    }
+
+    .result-reason {
+      font-size: 0.9rem;
+      color: #4a5568;
+      line-height: 1.55;
+    }
+
+    .result-source {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: #a0aec0;
+    }
+
+    .error-msg {
+      margin-top: 20px;
+      padding: 14px 18px;
+      background: #fff5f5;
+      border: 1.5px solid #fc8181;
+      border-radius: 8px;
+      color: #c53030;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .error-msg.show { display: block; }
+
+    .admin-link {
+      margin-top: 32px;
+      font-size: 0.82rem;
+      color: #a0aec0;
+      text-align: center;
+    }
+
+    .admin-link a {
+      color: #718096;
+      text-decoration: none;
+      border-bottom: 1px dashed #cbd5e0;
+    }
+
+    .admin-link a:hover { color: #4a5568; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Exam Calculator Checker</h1>
+  </div>
+
+  <div class="rule-banner">
+    <span class="icon">📋</span>
+    <p>
+      Students may only use calculators that are
+      <strong>silent, cordless, handheld</strong> and
+      <strong>NOT alphanumeric or programmable</strong>.
+      <strong>Graphing calculators are strictly prohibited.</strong>
+    </p>
+  </div>
+
+  <div class="search-card">
+    <p class="search-label">
+      Enter the brand and model number as shown on the calculator — for example,
+      <em>Casio FX-9750GII</em> or <em>Texas Instruments TI-84</em>.
+    </p>
+
+    <div class="search-row">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="e.g. Casio FX-82MS or Sharp EL-531"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+      />
+      <button id="checkBtn" onclick="checkCalculator()">Check</button>
+    </div>
+
+    <div class="spinner" id="spinner">Checking calculator — this may take a few seconds…</div>
+
+    <div class="result" id="result">
+      <div class="result-heading" id="resultHeading"></div>
+      <div class="result-model" id="resultModel"></div>
+      <div class="result-reason" id="resultReason"></div>
+      <div class="result-source" id="resultSource"></div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="admin-link">
+    <a href="admin.html">Admin</a>
+  </div>
+
+  <script>
+    const input = document.getElementById('searchInput');
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') checkCalculator(); });
+
+    async function checkCalculator() {
+      const q = input.value.trim();
+      if (!q) { input.focus(); return; }
+
+      const btn = document.getElementById('checkBtn');
+      const spinner = document.getElementById('spinner');
+      const result = document.getElementById('result');
+      const errorMsg = document.getElementById('errorMsg');
+
+      btn.disabled = true;
+      spinner.classList.add('active');
+      result.classList.remove('show', 'permitted', 'not-permitted', 'unknown');
+      errorMsg.classList.remove('show');
+
+      try {
+        const res = await fetch(`/api/check?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        spinner.classList.remove('active');
+
+        const heading = document.getElementById('resultHeading');
+        const modelEl = document.getElementById('resultModel');
+        const reasonEl = document.getElementById('resultReason');
+        const sourceEl = document.getElementById('resultSource');
+
+        modelEl.textContent = data.model || q;
+
+        if (data.permitted === false) {
+          result.classList.add('show', 'not-permitted');
+          heading.innerHTML = '🚫 Not Permitted';
+
+          if (data.source === 'prohibited_list') {
+            reasonEl.textContent = `Not permitted — ${data.model} is an ${data.reason}.`;
+          } else {
+            reasonEl.textContent = data.reason;
+          }
+          sourceEl.textContent = data.source === 'prohibited_list'
+            ? ''
+            : 'Determined via AI-assisted web search.';
+        } else if (data.permitted === true) {
+          result.classList.add('show', 'permitted');
+          heading.innerHTML = '✅ Permitted';
+          reasonEl.textContent = data.reason;
+          sourceEl.textContent = 'Determined via AI-assisted web search.';
+        } else {
+          result.classList.add('show', 'unknown');
+          heading.innerHTML = '⚠️ Unable to Verify';
+          reasonEl.textContent = data.reason || 'Could not find reliable information about this calculator model. Please verify manually or consult the exam regulations.';
+          sourceEl.textContent = 'AI-assisted check was inconclusive.';
+        }
+
+      } catch (err) {
+        spinner.classList.remove('active');
+        errorMsg.textContent = err.message || 'An error occurred. Please try again.';
+        errorMsg.classList.add('show');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

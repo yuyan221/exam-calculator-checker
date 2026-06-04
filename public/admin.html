@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — Calculator Checker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 6px;
+    }
+
+    .header p { font-size: 0.9rem; color: #718096; }
+
+    .back-link {
+      font-size: 0.85rem;
+      color: #4299e1;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 24px;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    /* Login */
+    .login-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 36px 40px;
+      max-width: 420px;
+      width: 100%;
+    }
+
+    .login-card h2 { font-size: 1.15rem; margin-bottom: 18px; color: #2d3748; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.85rem; color: #4a5568; margin-bottom: 6px; font-weight: 500; }
+    .form-group input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.97rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: #4299e1; }
+
+    .btn {
+      padding: 11px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn-primary { background: #2b6cb0; color: #fff; }
+    .btn-primary:hover { background: #2c5282; }
+    .btn-danger { background: #e53e3e; color: #fff; font-size: 0.82rem; padding: 6px 14px; }
+    .btn-danger:hover { background: #c53030; }
+    .btn-success { background: #276749; color: #fff; }
+    .btn-success:hover { background: #22543d; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-inline {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: #c53030;
+    }
+
+    /* Admin panel */
+    #adminPanel { display: none; max-width: 720px; width: 100%; }
+    #adminPanel.show { display: block; }
+
+    .panel-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+
+    .panel-card h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    /* Add form */
+    .add-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .add-grid .full { grid-column: 1 / -1; }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 9px 12px;
+      background: #f7fafc;
+      color: #4a5568;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f0f4f8;
+      color: #2d3748;
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f7fafc; }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #fed7d7;
+      color: #9b2c2c;
+      font-weight: 600;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 28px;
+      color: #a0aec0;
+      font-size: 0.9rem;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #2d3748;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .logout-btn {
+      font-size: 0.82rem;
+      color: #718096;
+      background: none;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 5px 12px;
+      cursor: pointer;
+      float: right;
+      margin-top: -4px;
+    }
+    .logout-btn:hover { background: #f7fafc; }
+  </style>
+</head>
+<body>
+
+  <a class="back-link" href="index.html">← Back to Calculator Checker</a>
+
+  <div class="header">
+    <h1>🔐 Admin Panel</h1>
+    <p>Manage the prohibited calculator list</p>
+  </div>
+
+  <!-- Login -->
+  <div class="login-card" id="loginCard">
+    <h2>Invigilator Login</h2>
+    <div class="form-group">
+      <label for="passwordInput">Password</label>
+      <input type="password" id="passwordInput" placeholder="Enter admin password" autocomplete="current-password" />
+    </div>
+    <button class="btn btn-primary" onclick="login()">Sign In</button>
+    <p class="error-inline" id="loginError"></p>
+  </div>
+
+  <!-- Admin panel -->
+  <div id="adminPanel">
+
+    <div class="panel-card">
+      <h2>
+        Prohibited Calculator List
+        <button class="logout-btn" onclick="logout()">Sign Out</button>
+      </h2>
+      <div id="tableContainer"><p class="empty-state">Loading…</p></div>
+    </div>
+
+    <div class="panel-card">
+      <h2>Add Calculator to Prohibited List</h2>
+      <div class="add-grid">
+        <div class="form-group">
+          <label>Brand</label>
+          <input type="text" id="addBrand" placeholder="e.g. Casio" />
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" id="addModel" placeholder="e.g. FX-9750GII" />
+        </div>
+        <div class="form-group full">
+          <label>Reason <span style="color:#a0aec0;font-weight:400">(optional)</span></label>
+          <input type="text" id="addReason" placeholder="e.g. graphing and programmable calculator" />
+        </div>
+      </div>
+      <button class="btn btn-success" onclick="addEntry()">Add to List</button>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let adminPassword = '';
+
+    document.getElementById('passwordInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') login();
+    });
+
+    async function login() {
+      const pw = document.getElementById('passwordInput').value;
+      const errEl = document.getElementById('loginError');
+      errEl.textContent = '';
+
+      const res = await fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        adminPassword = pw;
+        document.getElementById('loginCard').style.display = 'none';
+        document.getElementById('adminPanel').classList.add('show');
+        loadList();
+      } else {
+        errEl.textContent = 'Incorrect password. Please try again.';
+      }
+    }
+
+    function logout() {
+      adminPassword = '';
+      document.getElementById('loginCard').style.display = '';
+      document.getElementById('adminPanel').classList.remove('show');
+      document.getElementById('passwordInput').value = '';
+    }
+
+    async function loadList() {
+      const container = document.getElementById('tableContainer');
+      const res = await fetch(`/api/admin/list?password=${encodeURIComponent(adminPassword)}`);
+      const data = await res.json();
+
+      if (!data.models || data.models.length === 0) {
+        container.innerHTML = '<p class="empty-state">No prohibited calculators on the list yet.</p>';
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Brand</th>
+            <th>Model</th>
+            <th>Reason</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      data.models.forEach((m, i) => {
+        html += `<tr>
+          <td>${i + 1}</td>
+          <td>${esc(m.brand)}</td>
+          <td><strong>${esc(m.model)}</strong></td>
+          <td><span class="badge">${esc(m.reason)}</span></td>
+          <td><button class="btn btn-danger" onclick="removeEntry(${i})">Remove</button></td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    async function removeEntry(index) {
+      if (!confirm('Remove this calculator from the prohibited list?')) return;
+
+      const res = await fetch(`/api/admin/remove/${index}?password=${encodeURIComponent(adminPassword)}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Removed successfully.');
+        loadList();
+      } else {
+        showToast('Error: ' + (data.error || 'Unknown error'));
+      }
+    }
+
+    async function addEntry() {
+      const brand = document.getElementById('addBrand').value.trim();
+      const model = document.getElementById('addModel').value.trim();
+      const reason = document.getElementById('addReason').value.trim();
+
+      if (!brand || !model) {
+        showToast('Brand and model are required.');
+        return;
+      }
+
+      const res = await fetch('/api/admin/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword, brand, model, reason })
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        document.getElementById('addBrand').value = '';
+        document.getElementById('addModel').value = '';
+        document.getElementById('addReason').value = '';
+        showToast(`${brand} ${model} added to prohibited list.`);
+        loadList();
+      } else {
+        showToast('Error: ' + (data.error || 'Unknown error'));
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function esc(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  </script>
+</body>
+</html>
