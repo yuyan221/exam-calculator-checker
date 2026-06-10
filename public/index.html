@@ -203,6 +203,54 @@
 
     .error-msg.show { display: block; }
 
+    .fuzzy-card {
+      margin-top: 24px;
+      background: #ebf8ff;
+      border: 2px solid #63b3ed;
+      border-radius: 10px;
+      padding: 20px 22px;
+      display: none;
+    }
+
+    .fuzzy-card.show { display: block; }
+
+    .fuzzy-card p {
+      font-size: 0.95rem;
+      color: #2c5282;
+      margin-bottom: 14px;
+      line-height: 1.55;
+    }
+
+    .fuzzy-card strong { color: #1a365d; }
+
+    .fuzzy-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .btn-yes {
+      padding: 9px 22px;
+      background: #e53e3e;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.93rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-yes:hover { background: #c53030; }
+
+    .btn-no {
+      padding: 9px 22px;
+      background: #fff;
+      color: #4a5568;
+      border: 2px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: 0.93rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-no:hover { background: #f7fafc; }
+
     .admin-link {
       margin-top: 32px;
       font-size: 0.82rem;
@@ -262,6 +310,14 @@
       <div class="result-source" id="resultSource"></div>
     </div>
 
+    <div class="fuzzy-card" id="fuzzyCard">
+      <p id="fuzzyText"></p>
+      <div class="fuzzy-buttons">
+        <button class="btn-yes" onclick="confirmFuzzy()">Yes</button>
+        <button class="btn-no" onclick="rejectFuzzy()">No, search anyway</button>
+      </div>
+    </div>
+
     <div class="error-msg" id="errorMsg"></div>
   </div>
 
@@ -273,57 +329,79 @@
     const input = document.getElementById('searchInput');
     input.addEventListener('keydown', e => { if (e.key === 'Enter') checkCalculator(); });
 
-    async function checkCalculator() {
+    let pendingFuzzySuggestion = null;
+    let pendingQuery = null;
+
+    function resetUI() {
+      const result = document.getElementById('result');
+      const fuzzyCard = document.getElementById('fuzzyCard');
+      const errorMsg = document.getElementById('errorMsg');
+      result.classList.remove('show', 'permitted', 'not-permitted', 'unknown');
+      fuzzyCard.classList.remove('show');
+      errorMsg.classList.remove('show');
+    }
+
+    function showResult(data, q) {
+      const result = document.getElementById('result');
+      const heading = document.getElementById('resultHeading');
+      const modelEl = document.getElementById('resultModel');
+      const reasonEl = document.getElementById('resultReason');
+      const sourceEl = document.getElementById('resultSource');
+
+      modelEl.textContent = data.model || q;
+
+      if (data.permitted === false) {
+        result.classList.add('show', 'not-permitted');
+        heading.innerHTML = '🚫 Not Permitted';
+        if (data.source === 'prohibited_list') {
+          reasonEl.textContent = `Not permitted — ${data.model} is on the prohibited calculator list.`;
+        } else {
+          reasonEl.textContent = data.reason;
+        }
+        sourceEl.textContent = data.source === 'prohibited_list' ? '' : 'Determined via AI-assisted web search.';
+      } else if (data.permitted === true) {
+        result.classList.add('show', 'permitted');
+        heading.innerHTML = '✅ Permitted';
+        reasonEl.textContent = data.reason;
+        sourceEl.textContent = 'Determined via AI-assisted web search.';
+      } else {
+        result.classList.add('show', 'unknown');
+        heading.innerHTML = '⚠️ Unable to Verify';
+        reasonEl.textContent = data.reason || 'Could not find reliable information about this calculator model. Please verify manually or consult the exam regulations.';
+        sourceEl.textContent = 'AI-assisted check was inconclusive.';
+      }
+    }
+
+    async function checkCalculator(forceAI = false) {
       const q = input.value.trim();
       if (!q) { input.focus(); return; }
 
       const btn = document.getElementById('checkBtn');
       const spinner = document.getElementById('spinner');
-      const result = document.getElementById('result');
       const errorMsg = document.getElementById('errorMsg');
 
       btn.disabled = true;
       spinner.classList.add('active');
-      result.classList.remove('show', 'permitted', 'not-permitted', 'unknown');
-      errorMsg.classList.remove('show');
+      resetUI();
 
       try {
-        const res = await fetch(`/api/check?q=${encodeURIComponent(q)}`);
+        const url = `/api/check?q=${encodeURIComponent(q)}${forceAI ? '&force_ai=1' : ''}`;
+        const res = await fetch(url);
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error || 'Server error');
 
         spinner.classList.remove('active');
 
-        const heading = document.getElementById('resultHeading');
-        const modelEl = document.getElementById('resultModel');
-        const reasonEl = document.getElementById('resultReason');
-        const sourceEl = document.getElementById('resultSource');
-
-        modelEl.textContent = data.model || q;
-
-        if (data.permitted === false) {
-          result.classList.add('show', 'not-permitted');
-          heading.innerHTML = '🚫 Not Permitted';
-
-          if (data.source === 'prohibited_list') {
-            reasonEl.textContent = `Not permitted — ${data.model} is on the prohibited calculator list.`;
-          } else {
-            reasonEl.textContent = data.reason;
-          }
-          sourceEl.textContent = data.source === 'prohibited_list'
-            ? ''
-            : 'Determined via AI-assisted web search.';
-        } else if (data.permitted === true) {
-          result.classList.add('show', 'permitted');
-          heading.innerHTML = '✅ Permitted';
-          reasonEl.textContent = data.reason;
-          sourceEl.textContent = 'Determined via AI-assisted web search.';
+        if (data.source === 'fuzzy_match') {
+          pendingFuzzySuggestion = data.suggestion;
+          pendingQuery = q;
+          const fuzzyCard = document.getElementById('fuzzyCard');
+          document.getElementById('fuzzyText').innerHTML =
+            `Did you mean <strong>${esc(data.suggestion)}</strong>?`;
+          fuzzyCard.classList.add('show');
         } else {
-          result.classList.add('show', 'unknown');
-          heading.innerHTML = '⚠️ Unable to Verify';
-          reasonEl.textContent = data.reason || 'Could not find reliable information about this calculator model. Please verify manually or consult the exam regulations.';
-          sourceEl.textContent = 'AI-assisted check was inconclusive.';
+          showResult(data, q);
         }
 
       } catch (err) {
@@ -333,6 +411,33 @@
       } finally {
         btn.disabled = false;
       }
+    }
+
+    function confirmFuzzy() {
+      if (!pendingFuzzySuggestion) return;
+      resetUI();
+      const result = document.getElementById('result');
+      const heading = document.getElementById('resultHeading');
+      const modelEl = document.getElementById('resultModel');
+      const reasonEl = document.getElementById('resultReason');
+      const sourceEl = document.getElementById('resultSource');
+      result.classList.add('show', 'not-permitted');
+      heading.innerHTML = '🚫 Not Permitted';
+      modelEl.textContent = pendingFuzzySuggestion;
+      reasonEl.textContent = `Not permitted — ${pendingFuzzySuggestion} is on the prohibited calculator list.`;
+      sourceEl.textContent = '';
+      pendingFuzzySuggestion = null;
+      pendingQuery = null;
+    }
+
+    async function rejectFuzzy() {
+      pendingFuzzySuggestion = null;
+      resetUI();
+      await checkCalculator(true);
+    }
+
+    function esc(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
   </script>
 </body>

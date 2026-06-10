@@ -4,6 +4,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env'), override: true })
 const express = require('express');
 const fs = require('fs');
 const Anthropic = require('@anthropic-ai/sdk');
+const stringSimilarity = require('string-similarity');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +28,8 @@ function normalize(str) {
   return str.toLowerCase().replace(/[\s\-_]/g, '');
 }
 
+const FUZZY_THRESHOLD = 0.80;
+
 function findInProhibited(query) {
   const { models } = loadProhibited();
   const q = normalize(query);
@@ -37,10 +40,50 @@ function findInProhibited(query) {
   });
 }
 
+function fuzzyFindInProhibited(query) {
+  const { models } = loadProhibited();
+  const qNorm = normalize(query);
+  const qLower = query.toLowerCase().trim();
+
+  // Pass 1: prefix match — query is the start of a longer entry
+  // e.g. "TI-30XS" → "TI-30XS/X IIS" (normalized slash preserved)
+  if (qNorm.length >= 3) {
+    for (const m of models) {
+      const fullNorm = normalize(`${m.brand} ${m.model}`);
+      const modelNorm = normalize(m.model);
+      if (fullNorm.startsWith(qNorm) || modelNorm.startsWith(qNorm)) {
+        return { match: m, score: 1.0 };
+      }
+    }
+  }
+
+  // Pass 2: Dice-coefficient similarity, comparing model portions to avoid
+  // brand-name domination (all "Texas Instruments X" models look alike)
+  let best = null;
+  let bestScore = 0;
+  for (const m of models) {
+    const brandLower = m.brand.toLowerCase();
+    const modelLower = m.model.toLowerCase();
+    const fullLower = `${m.brand} ${m.model}`.toLowerCase();
+
+    // Strip brand prefix from query so we compare model vs model
+    const qForModel = qLower.startsWith(brandLower)
+      ? qLower.slice(brandLower.length).trim()
+      : qLower;
+
+    // Compare model portions only — avoids shared brand name inflating the score
+    const score = stringSimilarity.compareTwoStrings(qForModel, modelLower);
+    if (score > bestScore) { bestScore = score; best = m; }
+  }
+
+  return bestScore >= FUZZY_THRESHOLD ? { match: best, score: bestScore } : null;
+}
+
 app.get('/api/check', async (req, res) => {
   const query = (req.query.q || '').trim();
   if (!query) return res.status(400).json({ error: 'No query provided' });
 
+  // 1. Exact match
   const prohibited = findInProhibited(query);
   if (prohibited) {
     return res.json({
@@ -51,6 +94,19 @@ app.get('/api/check', async (req, res) => {
     });
   }
 
+  // 2. Fuzzy match (unless user already confirmed they want AI lookup)
+  if (!req.query.force_ai) {
+    const fuzzy = fuzzyFindInProhibited(query);
+    if (fuzzy) {
+      return res.json({
+        source: 'fuzzy_match',
+        suggestion: `${fuzzy.match.brand} ${fuzzy.match.model}`,
+        score: fuzzy.score
+      });
+    }
+  }
+
+  // 3. AI lookup
   try {
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
