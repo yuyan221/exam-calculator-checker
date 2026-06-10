@@ -27,6 +27,15 @@ function normalize(str) {
   return str.toLowerCase().replace(/[\s\-_]/g, '');
 }
 
+function brandApproxMatch(brandPart, brandNorm) {
+  // Allow 1-character difference at the end of the brand portion to handle
+  // singular/plural variations like "instrument" vs "instruments"
+  if (Math.abs(brandPart.length - brandNorm.length) > 1) return false;
+  const prefixLen = Math.min(brandPart.length, brandNorm.length) - 1;
+  if (prefixLen < 2) return false;
+  return brandPart.slice(0, prefixLen) === brandNorm.slice(0, prefixLen);
+}
+
 function findInProhibited(query) {
   const { models } = loadProhibited();
   // Split query on "/" to handle combined notations like "TI-30XS/X IIS"
@@ -34,12 +43,20 @@ function findInProhibited(query) {
   return models.find(m => {
     // Also split model names on "/" for entries like "FX-115MSPlus/ES"
     const modelSegments = m.model.split('/').map(s => s.trim()).filter(Boolean);
+    const brandNorm = normalize(m.brand);
     return querySegments.some(qSeg => {
       const qNorm = normalize(qSeg);
       return modelSegments.some(mSeg => {
         const fullNorm = normalize(`${m.brand} ${mSeg}`);
         const modelNorm = normalize(mSeg);
-        return qNorm === fullNorm || qNorm === modelNorm;
+        // Exact match
+        if (qNorm === fullNorm || qNorm === modelNorm) return true;
+        // Fuzzy brand match: query ends with model and brand prefix is close enough
+        if (modelNorm.length >= 3 && qNorm.endsWith(modelNorm)) {
+          const brandPart = qNorm.slice(0, qNorm.length - modelNorm.length);
+          if (brandPart.length > 0 && brandApproxMatch(brandPart, brandNorm)) return true;
+        }
+        return false;
       });
     });
   });
@@ -100,6 +117,10 @@ If the calculator is NOT alphanumeric, NOT programmable, and NOT a graphing calc
     }
 
     const result = JSON.parse(jsonMatch[0]);
+    // Strip citation tags injected by web search (e.g. <cite index="1-1">...</cite>)
+    if (result.reason) {
+      result.reason = result.reason.replace(/<cite[^>]*>|<\/cite>/g, '');
+    }
     result.source = 'ai_check';
     result.model = query;
     res.json(result);
