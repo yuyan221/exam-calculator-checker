@@ -29,11 +29,19 @@ function normalize(str) {
 
 function findInProhibited(query) {
   const { models } = loadProhibited();
-  const q = normalize(query);
+  // Split query on "/" to handle combined notations like "TI-30XS/X IIS"
+  const querySegments = query.split('/').map(s => s.trim()).filter(Boolean);
   return models.find(m => {
-    const full = normalize(`${m.brand} ${m.model}`);
-    const modelOnly = normalize(m.model);
-    return q === full || q === modelOnly;
+    // Also split model names on "/" for entries like "FX-115MSPlus/ES"
+    const modelSegments = m.model.split('/').map(s => s.trim()).filter(Boolean);
+    return querySegments.some(qSeg => {
+      const qNorm = normalize(qSeg);
+      return modelSegments.some(mSeg => {
+        const fullNorm = normalize(`${m.brand} ${mSeg}`);
+        const modelNorm = normalize(mSeg);
+        return qNorm === fullNorm || qNorm === modelNorm;
+      });
+    });
   });
 }
 
