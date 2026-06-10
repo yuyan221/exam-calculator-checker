@@ -307,7 +307,7 @@
           heading.innerHTML = '🚫 Not Permitted';
 
           if (data.source === 'prohibited_list') {
-            reasonEl.textContent = `Not permitted — ${data.model} is an alphanumeric/programmable calculator.`;
+            reasonEl.textContent = `Not permitted — ${data.model} is on the prohibited calculator list.`;
           } else {
             reasonEl.textContent = data.reason;
           }
