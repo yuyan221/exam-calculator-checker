@@ -120,9 +120,17 @@ app.get('/api/check', async (req, res) => {
       messages: [
         {
           role: 'user',
-          content: `I need to determine if the calculator "${query}" is alphanumeric or programmable for an exam.
+          content: `I need to determine if the calculator "${query}" is permitted in an exam.
 
-Exam rule: Students may only use calculators that are silent, cordless, handheld and NOT alphanumeric or programmable. Graphing calculators are strictly prohibited.
+Exam rule: Students may only use calculators that are silent, cordless, handheld and NOT alphanumeric and/or programmable. Graphing calculators are strictly prohibited.
+
+Rejection criteria — a calculator is NOT permitted if it meets ANY ONE of the following:
+- It is alphanumeric (has a full QWERTY or alphabetic keyboard)
+- It is programmable (can store and run custom programs)
+- It is both alphanumeric AND programmable
+- It is a graphing calculator
+
+A calculator is only permitted if it meets NONE of the above criteria.
 
 Please search for information about this calculator model and answer:
 1. Is it alphanumeric (has a full QWERTY or alphabetic keyboard)?
@@ -135,7 +143,7 @@ Respond in JSON format only:
   "reason": "specific reason based on the calculator's features"
 }
 
-If the calculator is NOT alphanumeric, NOT programmable, and NOT a graphing calculator, it is permitted (true). Otherwise it is not permitted (false). If you cannot find information about this calculator model, set permitted to null and explain in the reason.`
+If you cannot find information about this calculator model, set permitted to null and explain in the reason.`
         }
       ]
     });
