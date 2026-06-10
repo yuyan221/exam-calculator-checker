@@ -45,13 +45,18 @@ function fuzzyFindInProhibited(query) {
   const qNorm = normalize(query);
   const qLower = query.toLowerCase().trim();
 
-  // Pass 1: prefix match — query is the start of a longer entry
-  // e.g. "TI-30XS" → "TI-30XS/X IIS" (normalized slash preserved)
+  // Pass 1: structural match — no similarity scoring needed
+  // Covers: prefix match ("TI-30XS" → "TI-30XS/X IIS") and
+  //         contains match ("texas instrument TI-30XS/X IIS" contains model "TI-30XS/X IIS")
   if (qNorm.length >= 3) {
     for (const m of models) {
       const fullNorm = normalize(`${m.brand} ${m.model}`);
       const modelNorm = normalize(m.model);
-      if (fullNorm.startsWith(qNorm) || modelNorm.startsWith(qNorm)) {
+      if (
+        fullNorm.startsWith(qNorm) ||        // query is prefix of entry
+        modelNorm.startsWith(qNorm) ||        // query is prefix of model
+        (modelNorm.length >= 4 && qNorm.includes(modelNorm))  // query contains full model name
+      ) {
         return { match: m, score: 1.0 };
       }
     }
