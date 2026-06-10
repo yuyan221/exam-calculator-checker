@@ -36,30 +36,40 @@ function brandApproxMatch(brandPart, brandNorm) {
   return brandPart.slice(0, prefixLen) === brandNorm.slice(0, prefixLen);
 }
 
+function matchesEntry(qNorm, m) {
+  const brandNorm = normalize(m.brand);
+  const modelSegments = m.model.split('/').map(s => s.trim()).filter(Boolean);
+  return modelSegments.some(mSeg => {
+    const fullNorm = normalize(`${m.brand} ${mSeg}`);
+    const modelNorm = normalize(mSeg);
+    if (qNorm === fullNorm || qNorm === modelNorm) return true;
+    // Fuzzy brand match: handles singular/plural like "instrument" vs "instruments"
+    if (modelNorm.length >= 3 && qNorm.endsWith(modelNorm)) {
+      const brandPart = qNorm.slice(0, qNorm.length - modelNorm.length);
+      if (brandPart.length > 0 && brandApproxMatch(brandPart, brandNorm)) return true;
+    }
+    return false;
+  });
+}
+
 function findInProhibited(query) {
   const { models } = loadProhibited();
-  // Split query on "/" to handle combined notations like "TI-30XS/X IIS"
-  const querySegments = query.split('/').map(s => s.trim()).filter(Boolean);
-  return models.find(m => {
-    // Also split model names on "/" for entries like "FX-115MSPlus/ES"
-    const modelSegments = m.model.split('/').map(s => s.trim()).filter(Boolean);
-    const brandNorm = normalize(m.brand);
-    return querySegments.some(qSeg => {
-      const qNorm = normalize(qSeg);
-      return modelSegments.some(mSeg => {
-        const fullNorm = normalize(`${m.brand} ${mSeg}`);
-        const modelNorm = normalize(mSeg);
-        // Exact match
-        if (qNorm === fullNorm || qNorm === modelNorm) return true;
-        // Fuzzy brand match: query ends with model and brand prefix is close enough
-        if (modelNorm.length >= 3 && qNorm.endsWith(modelNorm)) {
-          const brandPart = qNorm.slice(0, qNorm.length - modelNorm.length);
-          if (brandPart.length > 0 && brandApproxMatch(brandPart, brandNorm)) return true;
-        }
-        return false;
-      });
-    });
-  });
+
+  // Pass 1: try the full query string (preserves "/" as part of the model name)
+  const qNormFull = normalize(query);
+  const fullMatch = models.find(m => matchesEntry(qNormFull, m));
+  if (fullMatch) return fullMatch;
+
+  // Pass 2: split on "/" as a fallback for combined notations like "TI-30XS/X IIS"
+  const segments = query.split('/').map(s => s.trim()).filter(Boolean);
+  if (segments.length > 1) {
+    for (const seg of segments) {
+      const hit = models.find(m => matchesEntry(normalize(seg), m));
+      if (hit) return hit;
+    }
+  }
+
+  return undefined;
 }
 
 app.get('/api/check', async (req, res) => {
