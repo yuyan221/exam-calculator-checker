@@ -27,49 +27,14 @@ function normalize(str) {
   return str.toLowerCase().replace(/[\s\-_]/g, '');
 }
 
-function brandApproxMatch(brandPart, brandNorm) {
-  // Allow 1-character difference at the end of the brand portion to handle
-  // singular/plural variations like "instrument" vs "instruments"
-  if (Math.abs(brandPart.length - brandNorm.length) > 1) return false;
-  const prefixLen = Math.min(brandPart.length, brandNorm.length) - 1;
-  if (prefixLen < 2) return false;
-  return brandPart.slice(0, prefixLen) === brandNorm.slice(0, prefixLen);
-}
-
-function matchesEntry(qNorm, m) {
-  const brandNorm = normalize(m.brand);
-  const modelSegments = m.model.split('/').map(s => s.trim()).filter(Boolean);
-  return modelSegments.some(mSeg => {
-    const fullNorm = normalize(`${m.brand} ${mSeg}`);
-    const modelNorm = normalize(mSeg);
-    if (qNorm === fullNorm || qNorm === modelNorm) return true;
-    // Fuzzy brand match: handles singular/plural like "instrument" vs "instruments"
-    if (modelNorm.length >= 3 && qNorm.endsWith(modelNorm)) {
-      const brandPart = qNorm.slice(0, qNorm.length - modelNorm.length);
-      if (brandPart.length > 0 && brandApproxMatch(brandPart, brandNorm)) return true;
-    }
-    return false;
-  });
-}
-
 function findInProhibited(query) {
   const { models } = loadProhibited();
-
-  // Pass 1: try the full query string (preserves "/" as part of the model name)
-  const qNormFull = normalize(query);
-  const fullMatch = models.find(m => matchesEntry(qNormFull, m));
-  if (fullMatch) return fullMatch;
-
-  // Pass 2: split on "/" as a fallback for combined notations like "TI-30XS/X IIS"
-  const segments = query.split('/').map(s => s.trim()).filter(Boolean);
-  if (segments.length > 1) {
-    for (const seg of segments) {
-      const hit = models.find(m => matchesEntry(normalize(seg), m));
-      if (hit) return hit;
-    }
-  }
-
-  return undefined;
+  const q = normalize(query);
+  return models.find(m => {
+    const full = normalize(`${m.brand} ${m.model}`);
+    const modelOnly = normalize(m.model);
+    return q === full || q === modelOnly;
+  });
 }
 
 app.get('/api/check', async (req, res) => {
